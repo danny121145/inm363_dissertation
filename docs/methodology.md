@@ -3,7 +3,7 @@
 Historical USD/IRR exchange-rate data were retrieved from the TGJU API using
 the `price_dollar_rl` market indicator endpoint:
 
-```text
+
 https://api.tgju.org/v1/market/indicator/summary-table-data/price_dollar_rl
 
 The API was accessed using Python's requests library. A 30-second timeout was
@@ -189,7 +189,7 @@ the date range;
 the number of duplicate dates;
 the total number of missing values.
 
-##daily data prep results
+## daily data prep results
 The cleaning process created an interim dataset with 3,916 daily observations, covering the period from 26 November 2011 to 30 July 2026.
 
 There were no duplicate dates, and none of the required fields had missing values. However, the change column had 179 missing values, and the change_percent column had 190 missing values. These missing values were accepted because these columns are not needed to calculate returns or volatility later.
@@ -197,3 +197,21 @@ There were no duplicate dates, and none of the required fields had missing value
 Eight rows had problems with the open, high, low, and close values. In some cases, the opening or closing price was outside the reported daily low and high range. In other cases, the reported low price was higher than the high price.
 
 These rows were kept in the dataset and marked as ohlc_valid=False. They were not removed or changed because they may still be useful later, and keeping them makes it possible to compare them with the original raw data.
+
+## Weekly Dataset and Target Variable Construction
+
+1. The cleaned exchange-rate dataset initially contains one observation for
+   each available day. It must therefore be converted into a weekly dataset
+   for the modelling stage.
+2. Load the cleaned interim CSV file and retain the Gregorian date and closing
+   price columns.
+3. Sort the daily observations in chronological order.
+4. Divide the daily observations into weeks ending on Friday. For each week,
+   select the latest available daily closing price. When no observation exists
+   on the Friday itself, use the most recent available observation from that
+   week.
+5. Record the date of the daily observation selected for each week in an
+   observation_date column. This distinguishes the Friday week-ending label
+   from the date on which the selected closing price was actually observed.
+6. Calculate the weekly logarithmic return as:
+   log_return = log(current weekly close / previous weekly close)
