@@ -153,3 +153,47 @@ unchanged as:
 
 data/raw/usd_irr_tgju_history_raw.json
 
+## RAW TGJU data cleaning methodology
+1.Define the location of the raw TGJU JSON file and the location where the cleaned interim CSV file will be saved.
+2. Open the raw JSON file without changing it, so the original downloaded data remains preserved.
+3. Extract the historical exchange-rate rows from the data section of the JSON structure.
+4. Assign clear column names to the values in each row: open, low, high, close, change, change_percent, date, and jalali_date.
+5. Convert the raw rows into a pandas dataframe so that the observations can be cleaned and validated as a table.
+6. Clean the numerical columns by:
+removing any HTML tags;
+removing commas used as thousands separators;
+removing percentage signs;
+removing unnecessary spaces;
+replacing blank values or hyphens with missing values;
+converting the remaining values into numbers.
+7. Convert the Gregorian date column from text in YYYY/MM/DD format into a proper date value.
+8. Stop the process if any Gregorian date cannot be parsed correctly. This prevents invalid dates from entering the interim dataset.
+9. Sort all observations by Gregorian date, starting with the earliest date and ending with the most recent date.
+10. Check whether the dataset contains more than one row for the same Gregorian date.
+11. Stop the process and report the affected dates if duplicate dates are found. Do not automatically delete duplicates because they should first be checked against the raw source.
+12. Stop the process if any required values are missing. The change and change_percent columns are allowed to contain missing values because they can be recalculated later if necessary.
+13. Check whether the daily open, high, low, and close values have valid relationships.
+14. Treat a row as valid when:
+the low value is not greater than the high value;
+the open value is between the low and high;
+the close value is between the low and high.
+15. Create a new Boolean column called ohlc_valid.
+16. Mark each row as True when its OHLC values are logically consistent and False when they are not.
+17. Retain rows with invalid OHLC relationships instead of deleting or correcting them. Print a warning showing how many invalid rows were found so they can be investigated later.
+18. Save the cleaned dataframe as a CSV file without adding a pandas row index.
+19. Print a final summary containing:
+the saved file location;
+the number of rows;
+the column names;
+the date range;
+the number of duplicate dates;
+the total number of missing values.
+
+##daily data prep results
+The cleaning process created an interim dataset with 3,916 daily observations, covering the period from 26 November 2011 to 30 July 2026.
+
+There were no duplicate dates, and none of the required fields had missing values. However, the change column had 179 missing values, and the change_percent column had 190 missing values. These missing values were accepted because these columns are not needed to calculate returns or volatility later.
+
+Eight rows had problems with the open, high, low, and close values. In some cases, the opening or closing price was outside the reported daily low and high range. In other cases, the reported low price was higher than the high price.
+
+These rows were kept in the dataset and marked as ohlc_valid=False. They were not removed or changed because they may still be useful later, and keeping them makes it possible to compare them with the original raw data.

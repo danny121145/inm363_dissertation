@@ -8,7 +8,7 @@
 
 **Use category:** Full text generation based on user-provided research notes and outputs
 
-**Related commit:** To be added after committing the documentation
+**Related commit:** c05cceb
 
 **Evidence reference:** EVIDENCE-AI-001
 

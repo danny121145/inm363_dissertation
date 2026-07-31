@@ -8,7 +8,7 @@
 
 **Related activity:** TGJU API acquisition and initial response inspection
 
-**Related commit:** To be added after committing the documentation
+**Related commit:** c05cceb
 
 ### Context
 
