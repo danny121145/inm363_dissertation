@@ -154,7 +154,7 @@ unchanged as:
 data/raw/usd_irr_tgju_history_raw.json
 
 ## RAW TGJU data cleaning methodology
-1.Define the location of the raw TGJU JSON file and the location where the cleaned interim CSV file will be saved.
+1. Define the location of the raw TGJU JSON file and the location where the cleaned interim CSV file will be saved.
 2. Open the raw JSON file without changing it, so the original downloaded data remains preserved.
 3. Extract the historical exchange-rate rows from the data section of the JSON structure.
 4. Assign clear column names to the values in each row: open, low, high, close, change, change_percent, date, and jalali_date.
