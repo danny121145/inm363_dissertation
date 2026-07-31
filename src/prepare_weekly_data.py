@@ -16,10 +16,14 @@ def main() -> None:
     weekly = daily.resample("W-FRI").last()
     weekly = weekly.dropna(subset=["close"])
     weekly["log_return"] = np.log(weekly["close"] / weekly["close"].shift(1))
+    weekly["squared_return"] = weekly["log_return"] ** 2
+    weekly["rolling_volatility_4w"] = weekly["log_return"].rolling(window=4).std()
+    weekly["target_volatility_4w"] = weekly["rolling_volatility_4w"].shift(-4)
+    weekly["target_squared_volatility_1w"] = weekly["squared_return"].shift(-1)
     weekly.index.name = "week_ending"
     weekly = weekly.reset_index()
     weekly = weekly[
-        ["week_ending", "observation_date", "close", "log_return"]
+        ["week_ending", "observation_date", "close", "log_return", "squared_return", "rolling_volatility_4w", "target_volatility_4w", "target_squared_volatility_1w"]
     ]
 
     WEEKLY_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
