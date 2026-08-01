@@ -336,3 +336,6 @@ places it four weeks earlier so that it represents future volatility.
 based on one squared weekly return rather than the standard deviation of
 four weekly returns. Its values will therefore be evaluated separately
 from the primary target.
+
+### Target-Safe Chronological Splits
+The data is split by date into training, validation, and test sets. Because the targets use future returns, some rows at the end of each set cannot be used. For the four-week volatility target, the last four rows of each set are removed because they need data from the next four weeks. For the one-week squared-return target, the last row of each set is removed because it needs the following week’s return. This stops data from one set being used to calculate targets in another set and prevents information leakage.
