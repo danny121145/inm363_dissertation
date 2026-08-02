@@ -83,3 +83,91 @@ I compared the generated methodology section with:
 I confirmed that the generated text accurately represented the work I had
 already completed and did not change the results or attribute the data-source
 selection and API inspection to ChatGPT.
+
+## AI-002 — Generating the OFAC candidate-announcement downloader
+
+**Date:** 1 August 2026
+
+**Activity:** Implementation of the one-time OFAC sanctions data downloader
+
+**Use category:** Code generation based on researcher-defined requirements
+
+**Files affected:** `src/download_ofac_sanctions.py`
+
+**Related commit:** To be added after committing the downloader
+
+**Evidence reference:** EVIDENCE-AI-002
+
+### My original work
+
+I independently selected the US Treasury Office of Foreign Assets Control
+Recent Actions archive as the primary source for US sanctions events.
+
+Before requesting code, I manually inspected and tested the source. I:
+
+- searched the OFAC archive using the keyword `Iran`;
+- tested year-specific filters from 2011 to 2026;
+- confirmed that the search parameters and page number appeared in the URL;
+- confirmed that pagination could be accessed programmatically;
+- identified and excluded non-dated category links;
+- found 554 candidate announcements across the study period;
+- tested extraction from one OFAC detail page;
+- confirmed that the official release date, title, announcement body,
+  press-release link and OFAC source URL could be extracted;
+- tested the extraction method across all 41 candidate pages returned for
+  2012 and found no missing titles, dates or descriptions;
+- wrote the methodology and specified the required raw-data fields.
+
+### How generative AI was used
+
+I provided ChatGPT with my methodology and asked it to create
+`download_ofac_sanctions.py`.
+
+ChatGPT generated the complete Python implementation. The generated script:
+
+- searches the OFAC Recent Actions archive separately by year;
+- follows all paginated result pages;
+- extracts dated announcement links;
+- removes duplicate links;
+- visits each candidate announcement page;
+- extracts the release date, title, body text, optional press-release URL and
+  OFAC source URL;
+- validates that required source fields are present;
+- applies a short delay between requests;
+- prevents accidental overwriting of the raw file;
+- saves the candidate records and collection metadata as JSON.
+
+The script does not classify relevance, action type, sector, tightening or
+relief. Those decisions remain part of the later manual review stage.
+
+### What I accepted, changed or rejected
+
+I used the complete generated script in:
+
+```text
+src/download_ofac_sanctions.py
+
+The implementation followed the methodology, fields and collection period that
+I had already defined.
+
+How I verified the result
+
+I ran the script in the project environment and confirmed that it created:
+data/raw/ofac_iran_candidate_events_raw.json
+
+The saved raw file contained:
+
+554 candidate announcements;
+554 unique OFAC source URLs;
+0 duplicate source URLs;
+0 missing titles;
+0 missing release dates;
+0 missing descriptions.
+
+The yearly candidate counts matched the counts obtained during the earlier
+archive inspection.
+
+The first extracted record was dated 13 January 2011 and the final extracted
+record was dated 30 July 2026, confirming coverage across the intended study
+period.
+

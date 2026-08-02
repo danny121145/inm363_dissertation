@@ -339,3 +339,14 @@ from the primary target.
 
 ### Target-Safe Chronological Splits
 The data is split by date into training, validation, and test sets. Because the targets use future returns, some rows at the end of each set cannot be used. For the four-week volatility target, the last four rows of each set are removed because they need data from the next four weeks. For the one-week squared-return target, the last row of each set is removed because it needs the following week’s return. This stops data from one set being used to calculate targets in another set and prevents information leakage.
+
+## OFAC data gathering and creation of the raw and interm files for sanctions events
+1. look through the recent actions archives pages and use filters per year from 2011 to 2026 to gather all sources related to iran
+2. there are 554 results so the title of each that mentions iran doesnt need clicking through but titles that dont include iran but be searched so see if they are related or not
+3. create a download_ofac_sanctions.py to collect candidate announcement automatically. gather specifically, official release date, title, announcement body, optional press-release url, OFAC source url. 
+4. save the collected source info as a json file. dont add any sanctions classifications yet.
+5. review each candidate announcement including records whose titles contain the word Iran to decide relevancy. 
+6. create an interm csv that contains: event_date, issuing_authority, action_type, sector, title, description, press_release_url, source_reference, relevant, classification_notes
+7. assign classification such as tightening, relief, license, regulatory change and sector categories during manual review
+8. now that script is created we can inspect each record and decide relevance, the action type, sector and any classification notes. these will all be stored in a csv.
+9. once that csv is created we will create a prepare_ofac_data.py script, which will load the json and the csv, match them with a source reference, verify each candidate has a classification, retain only the relvant events and from that create the interim sanctions-event csv.
