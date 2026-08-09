@@ -384,7 +384,7 @@ work and results.
 
 **Related file:** `src/download_ofac_sanctions.py`
 
-**Related commit:** To be added after committing the downloader
+**Related commit:** 41c08c1
 
 ### Context
 

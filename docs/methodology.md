@@ -340,7 +340,7 @@ from the primary target.
 ### Target-Safe Chronological Splits
 The data is split by date into training, validation, and test sets. Because the targets use future returns, some rows at the end of each set cannot be used. For the four-week volatility target, the last four rows of each set are removed because they need data from the next four weeks. For the one-week squared-return target, the last row of each set is removed because it needs the following week’s return. This stops data from one set being used to calculate targets in another set and prevents information leakage.
 
-## OFAC data gathering and creation of the raw and interm files for sanctions events
+## OFAC data gathering and creation of the raw and interm and processed files for sanctions events
 1. look through the recent actions archives pages and use filters per year from 2011 to 2026 to gather all sources related to iran
 2. there are 554 results so the title of each that mentions iran doesnt need clicking through but titles that dont include iran but be searched so see if they are related or not
 3. create a download_ofac_sanctions.py to collect candidate announcement automatically. gather specifically, official release date, title, announcement body, optional press-release url, OFAC source url. 
@@ -350,3 +350,152 @@ The data is split by date into training, validation, and test sets. Because the 
 7. assign classification such as tightening, relief, license, regulatory change and sector categories during manual review
 8. now that script is created we can inspect each record and decide relevance, the action type, sector and any classification notes. these will all be stored in a csv.
 9. once that csv is created we will create a prepare_ofac_data.py script, which will load the json and the csv, match them with a source reference, verify each candidate has a classification, retain only the relvant events and from that create the interim sanctions-event csv.
+10. preapre_ofac_data.py is created now and from the interim csv has been created which has 506 relvant cases, 0 duplicates, 314 tightening, 61 license, 60 regulatory, 52 other and 19 relief. the csv has coulmns with event_date,title,description,press_release_url,source_reference,action_type,sector,classification_notes. 
+11. assign each event a week ending friday, count events by action type, split multi sector labels, count sectors by week, create one row for every exchange rate week, weeks with no sanctions events = 0. 
+12. the columns before initally inspecting: week_ending, sanctions_event_count, sanctions_tightening_count, sanctions_relief_count, sanctions_license_count, sanctions_regulatory_change_count, sanctions_other_count
+13. after inspecting prepare_weekly_sanctions_data.py about 38 weeks were removed because they arent part of the calendar that we have in the tgju dataset, before the 2nd of december 2011. the action events are 293 tightening + 19 relief + 53 license + 52 regulatory_change + 51 other = 468 total events. next I will add the sectors as columns as well because the action events are considered the same even if one is banking related or nuclear related. 
+14. the prepare weekly file has been updated with the sectors and all 8 sectors have been seen enough to be relevant. 
+
+## Exploring the Weekly Sanctions Data
+1. load the processed weekly sanctions dataset and parse the week_ending column as a date.
+2. check the number of rows and the date range to confirm that the sanctions dataset matches the weekly USD/IRR dataset.
+3. calculate the maximum weekly value for each sanctions feature to check whether any weeks contain unusually large numbers of sanctions events.
+4. calculate how many weeks each sanctions feature is greater than zero, and the percentage of total weeks this represents. This is used to check how sparse each feature is.
+5. calculate a correlation matrix between the sanctions features to check whether some variables contain very similar information.
+6. the dataset contained 763 weekly observations from 2011-12-02 to 2026-07-31. Sanctions activity occurred in 347 weeks, or 45.48% of the dataset. Tightening was the most common action type, while relief was the most sparse.
+7. the strongest correlations were between total sanctions events and tightening events (0.783), tightening events and government/IRGC sanctions (0.765), and oil/energy sanctions and shipping sanctions (0.604).
+8. none of the correlations were close enough to 1 to suggest that two variables contain exactly the same information. Therefore, all sanctions features were kept in the processed dataset for now, with final feature selection to be completed later when all explanatory variables are combined.
+
+## Preparing weekly brent oil price data
+1. use the official weekly Europe Brent Spot Price FOB dataset from the U.S. Energy Information Administration (EIA). The downloaded raw CSV is kept unchanged in the raw data folder.
+2. the EIA dataset is already weekly, so no daily-to-weekly resampling is required. Each weekly value represents the average of the daily Brent closing spot prices during that week and the date represents the week ending date.
+3. remove the three metadata rows at the beginning of the downloaded CSV and keep the week date and Brent price columns.
+4. rename the columns to week_ending and brent_price, parse the date column and sort the observations from oldest to newest.
+5. check for missing values, duplicate weeks, invalid prices and the historical date range before further processing.
+6. calculate brent_log_return using the change in the log of the weekly Brent price from the previous week. Calculate this before restricting the historical period so that the first week of the USD/IRR dataset can still have a valid oil-price change.
+7. restrict the processed dataset to the USD/IRR study period from 2011-12-02 to 2026-07-31.
+8. save week_ending, brent_price and brent_log_return as the processed weekly Brent dataset. The Brent log return will be considered as the main candidate oil feature when the final modelling dataset is created.
+9. processed Brent dataset contains 766 weekly observations from 2011-12-02 to 2026-07-31 with no missing prices, missing log returns or duplicate weeks.
+
+## Exploring the Weekly Brent Oil Data
+1. load the processed weekly Brent oil dataset and parse the week_ending column as a date.
+2. check the number of rows and date range to confirm that the processed dataset was created correctly.
+3. use descriptive statistics on brent_price to show the average, standard deviation, minimum, quartiles and maximum weekly Brent price.
+4. use descriptive statistics on brent_log_return to measure the average weekly oil-price change and how much weekly changes vary.
+5. calculate skewness and kurtosis of brent_log_return to check whether the distribution contains uneven or extreme weekly movements.
+6. identify the dates of the largest negative and positive Brent log returns.
+7. the dataset contained 766 weekly observations from 2011-12-02 to 2026-07-31. Brent prices had a mean of 75.84 dollars per barrel and ranged from 14.24 to 127.40 dollars.
+8. the average weekly Brent log return was close to zero, while the standard deviation was approximately 0.0505. The skewness of -0.819 suggests more extreme negative movements, while the excess kurtosis of 12.58 shows that unusually large weekly oil-price changes occurred more often than under a normal distribution.
+9. the largest negative weekly return occurred on 2020-03-13 and the largest positive weekly return occurred on 2020-05-08. These results show that the Brent series contains occasional large movements, supporting the use of weekly oil-price changes as a candidate explanatory variable.
+
+## Preparing Iran Inflation Data
+1. load the raw IMF monthly CPI dataset and keep only Iran, CPI, All Items, Index and Monthly observations.
+2. remove the extra IMF metadata/footer row and keep the monthly time period and CPI value.
+3. check for missing CPI values, duplicate months and the available historical period.
+4. convert the monthly time period into a date and sort the observations from oldest to newest.
+5. calculate the year-on-year inflation rate by comparing each monthly CPI value with the CPI value from 12 months earlier.
+6. because the raw series begins at 2010-M12, the first usable year-on-year inflation observation is 2011-M12, which covers the beginning of the USD/IRR study period.
+7. apply a one-month lag to inflation before converting it to weekly data. For example, December inflation becomes available from January and is therefore used for the weekly observations in January. This prevents inflation information from being used during the same month it measures.
+8. use the existing USD/IRR week_ending dates as the weekly calendar. For each Friday, use the latest lagged inflation value available by that date.
+9. keep reference_month, cpi_index and inflation_yoy in the processed dataset for traceability, while inflation_yoy is the main candidate inflation feature for modelling.
+10. the final processed dataset contains 763 weekly rows from 2011-12-02 to 2026-07-31. The first five weeks have missing inflation values because December 2011 inflation only becomes available from January 2012. These values are left missing rather than filled using future information.
+
+## Exploring the Weekly Iran Inflation Data
+1. load the processed weekly inflation dataset and check the number of rows, date range, usable observations and missing values.
+2. use descriptive statistics on inflation_yoy to show the average, standard deviation, minimum, quartiles and maximum inflation rate.
+3. calculate skewness and kurtosis to check the shape of the inflation distribution.
+4. identify the reference months associated with the minimum and maximum inflation values.
+5. the processed dataset contained 763 weekly observations, with 758 usable inflation values and 5 missing observations at the beginning caused by the one-month lag.
+6. average year-on-year inflation was 30.49%, with a standard deviation of 16.75 percentage points. Inflation ranged from 5.68% to 88.57%.
+7. skewness of 0.439 shows that the distribution is slightly weighted toward higher inflation values. Kurtosis of 0.235 suggests that the distribution is not strongly dominated by extreme observations.
+8. the minimum inflation value was associated with December 2016, while the maximum was associated with June 2026. The inflation feature is therefore considered suitable to keep as a candidate explanatory variable for the later multivariate model.
+
+## Merge Explanatory Variables
+
+1. Use the processed weekly USD/IRR dataset as the master modelling calendar.
+2. Before merging, inspect each processed dataset to confirm:
+   * column names;
+   * number of rows;
+   * date range;
+   * duplicate week_ending values;
+   * missing values.
+3. The datasets to be merged are:
+   * weekly USD/IRR data;
+   * weekly Brent oil data;
+   * weekly Iran inflation data;
+   * weekly OFAC sanctions data.
+4. Merge the datasets using week_ending.
+5. Use left joins with the USD/IRR dataset as the master dataset so that the final modelling table follows the exchange-rate observation calendar.
+6. Use one-to-one merge validation so that the merge fails if duplicate weekly observations are unexpectedly present in either dataset.
+7. Keep all prepared explanatory-variable columns in the merged source dataset at this stage. Final feature selection for the univariate and multivariate LSTM models is carried out separately in the next phase.
+7. After merging, sort the dataset chronoligcally and check:
+   * one row per week;
+   * chronological order;
+   * duplicate weeks;
+   * final date range;
+   * total number of rows
+   * missing-value pattern;
+   * whether any explanatory variable is unavailable for particular weeks.
+8. Confirm that feature timing rules are preserved:
+   * Brent data corresponds to the relevant Friday-ending week;
+   * inflation uses the previously defined one-month availability lag;
+   * sanctions use their official event dates;
+   * no feature uses information that would only have been available after the forecast date.
+9. Keep the future target columns separate from input feature selection. They must never be used as explanatory variables.
+11. The completed merge produced 763 weekly observations covering 2 December 2011 to 31 July 2026, which matches the USD/IRR master dataset.
+12. The final merged dataset contains no duplicate weeks and remains in chronological order.
+13. Brent oil and sanctions variables contain no missing values after the merge, showing that all USD/IRR weeks were successfully matched to these explanatory datasets.
+14. The remaining missing values are expected from the way the variables were constructed: 
+* one missing log_return and squared_return observation at the beginning of the series because no previous exchange-rate observation exists
+* four missing rolling_volatility_4w observations at the beginning because four historical weekly returns are required
+* four missing target_volatility_4w observations at the end because four future weekly returns are required
+* one missing target_squared_volatility_1w observation at the end because the following week's return is unavailable
+* five missing inflation observations at the beginning because of the one-month inflation availability lag
+15. Do not fill or remove these missing values during the merge stage. They are retained so that modelling-row selection can be handled explicitly when the modelling datasets and LSTM sequences are created.
+16. Save the completed merged weekly dataset as the final source table for the later GARCH evaluation and LSTM experiments.
+
+## Create Modelling Datasets
+1. Use the final merged weekly dataset as the source for all modelling experiments.
+2. Create separate modelling setups for:
+   * GARCH;
+   * univariate LSTM;
+   * multivariate LSTM.
+3. For GARCH, use weekly log_return only. The economic and sanctions variables are not included in the main GARCH model.
+4. For the univariate LSTM, use historical exchange-rate variables only:
+   * log_return;
+   * squared_return;
+   * rolling_volatility_4w.
+5. For the multivariate LSTM, use the same exchange-rate variables together with:
+   * brent_log_return;
+   * inflation_yoy;
+   * sanctions_event_count;
+   * sanctions_tightening_count;
+   * sanctions_relief_count.
+6. Use a smaller sanctions feature set instead of using every sanctions column. The remaining sanctions variables stay in the merged dataset and can be tested later if needed.
+7. Use the same targets for the LSTM experiments:
+   * primary target: target_volatility_4w;
+   * robustness target: target_squared_volatility_1w.
+8. Do not use either target column as an input feature.
+9. Remove rows only when the variables needed for that experiment are missing.
+10. For GARCH, remove the first row where log_return is missing.
+11. For the univariate LSTM, use rows where all selected exchange-rate features and the chosen target are available.
+12. For the multivariate LSTM, also require the selected Brent, inflation and sanctions variables to be available.
+13. Do not fill the first five missing inflation values. These weeks are excluded naturally because the inflation data was not yet available under the one-month lag rule.
+14. For the primary target, remove the final four weeks where the future four-week volatility target is unavailable.
+15. For the robustness target, remove the final week where the next-week squared return is unavailable.
+16. Keep all modelling data in chronological order and do not randomly shuffle the time series.
+17. The final usable GARCH dataset contains 762 weekly observations from 9 December 2011 to 31 July 2026.
+18. The univariate LSTM dataset contains:
+    * 755 observations for the primary target, covering 30 December 2011 to 3 July 2026;
+    * 758 observations for the robustness target, covering 30 December 2011 to 24 July 2026.
+19. The multivariate LSTM dataset contains:
+    * 754 observations for the primary target, covering 6 January 2012 to 3 July 2026;
+    * 757 observations for the robustness target, covering 6 January 2012 to 24 July 2026.
+20. All final modelling datasets contain no duplicate weeks and no missing values in the variables required for each experiment.
+21. Recreate the train, validation and test splits using these final usable modelling datasets so that the splits match the final feature set and target.
+22. Keep the same time-based split approach across comparable experiments so that model results can be compared fairly.
+23. Do not create unnecessary copies of the full dataset. Keep one merged source dataset and define the required feature lists in code for each experiment.
+24. The final modelling setups are:
+    * GARCH: log_return;
+    * univariate LSTM: historical USD/IRR features;
+    * multivariate LSTM: historical USD/IRR features plus Brent oil, inflation and selected sanctions variables.

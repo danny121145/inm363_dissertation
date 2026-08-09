@@ -83,3 +83,24 @@ download remains available for validation and reproducibility.
 - then create a clean interim dataset from that. finally create the processed file with coulmuns like: week_ending,sanctions_event,sanctions_event_count,sanctions_tightening,sanctions_relief,sanctions_oil_energy,sanctions_finance,sanctions_shipping, sanctions_government_irgc, sanctions_human_rights, sanctions_nuclear, sanctions_general_other, sanctions_trade
 - initial only use a few of the sanctions features in the models to avoid overfitting then slowly add more. 
 - for week ending friday: an announcement made on tuesday will belong to that fridays week. an announcement made on saturday belongs to the following fridays week.
+
+## Brent Oil Price Data and Sources
+
+- use the U.S. Energy Information Administration (EIA) Weekly Europe Brent Spot Price FOB dataset as the main source.
+- the dataset is already weekly, so no daily-to-weekly resampling is needed.
+- keep the downloaded CSV unchanged in the raw folder and skip the first three metadata rows when loading it.
+- rename the main columns to: week_ending, brent_price
+- sort the data by date and check for missing values, duplicate weeks and invalid prices.
+- calculate brent_log_return as the weekly oil-price change and use this as the main candidate oil feature.
+- keep brent_price in the processed dataset for reference.
+- restrict the processed data to the same study period as the USD/IRR weekly dataset.
+
+## Iran Inflation Data and Sources
+- use the IMF Consumer Price Index (CPI) dataset as the main source.
+- use Iran, Consumer Price Index, All Items, Index, Monthly frequency.
+- keep the downloaded IMF CSV unchanged in the raw folder: data/raw/imf_iran_cpi_monthly.csv
+- the downloaded CPI series starts at 2010-M12 and currently ends at 2026-M06.
+- use the CPI index rather than a pre-calculated inflation transformation so that the year-on-year inflation rate can be calculated in our own processing script.
+- calculate year-on-year inflation using the percentage change in CPI compared with the same month one year earlier.
+- use the calculated inflation rate as the main candidate inflation feature.
+- monthly inflation values will later be aligned to the weekly dataset using the latest value that would have been available at each week, to avoid future-data leakage.
