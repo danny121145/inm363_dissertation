@@ -499,3 +499,123 @@ The data is split by date into training, validation, and test sets. Because the 
     * GARCH: log_return;
     * univariate LSTM: historical USD/IRR features;
     * multivariate LSTM: historical USD/IRR features plus Brent oil, inflation and selected sanctions variables.
+
+## Create Final Chronological Splits
+1. Use fixed calendar dates for the train, validation and test periods so that comparable experiments use the same time boundaries.
+2. Use the following main calendar split:
+   * training period: up to 27 December 2019;
+   * validation period: 3 January 2020 to 30 December 2022;
+   * test period: from 6 January 2023 onward.
+3. Keep all observations in chronological order. Do not randomly shuffle the time-series data.
+4. For GARCH, use the full return observations available within each calendar split because GARCH is fitted directly to historical weekly returns.
+5. For the primary LSTM target, remove the final four observations from the training and validation periods because target_volatility_4w uses the following four weekly returns.
+6. This prevents primary-target values in one split from using exchange-rate returns belonging to the following split.
+7. For the robustness target, remove the final observation from the training and validation periods because target_squared_volatility_1w uses the following week's squared return.
+8. Do not remove additional observations from the test datasets. Rows where the required future target cannot be calculated have already been removed when the modelling datasets were created.
+9. The final GARCH splits contain:
+   * training: 420 observations from 9 December 2011 to 27 December 2019;
+   * validation: 156 observations from 3 January 2020 to 30 December 2022;
+   * test: 186 observations from 6 January 2023 to 31 July 2026.
+10. The final univariate LSTM splits for the primary target contain:
+    * training: 413 observations from 30 December 2011 to 29 November 2019;
+    * validation: 152 observations from 3 January 2020 to 2 December 2022;
+    * test: 182 observations from 6 January 2023 to 3 July 2026.
+11. The final univariate LSTM splits for the robustness target contain:
+    * training: 416 observations from 30 December 2011 to 20 December 2019;
+    * validation: 155 observations from 3 January 2020 to 23 December 2022;
+    * test: 185 observations from 6 January 2023 to 24 July 2026.
+12. The final multivariate LSTM splits for the primary target contain:
+    * training: 412 observations from 6 January 2012 to 29 November 2019;
+    * validation: 152 observations from 3 January 2020 to 2 December 2022;
+    * test: 182 observations from 6 January 2023 to 3 July 2026.
+13. The final multivariate LSTM splits for the robustness target contain:
+    * training: 415 observations from 6 January 2012 to 20 December 2019;
+    * validation: 155 observations from 3 January 2020 to 23 December 2022;
+    * test: 185 observations from 6 January 2023 to 24 July 2026.
+14. These split rules are kept fixed before model development so that GARCH, univariate LSTM and multivariate LSTM experiments can be compared using consistent out-of-sample periods.
+
+## Final Model Scope
+1. The original modelling plan included three models:
+   * GARCH;
+   * univariate LSTM;
+   * multivariate LSTM.
+2. After completing the data-preparation stage, the modelling scope was reduced to:
+   * GARCH;
+   * multivariate LSTM.
+3. The univariate LSTM was removed to keep the remaining modelling work manageable and allow enough time for model testing, repeated runs and error checking.
+4. GARCH remains the traditional statistical benchmark and uses historical weekly USD/IRR log returns.
+5. The multivariate LSTM uses historical exchange-rate information together with the selected explanatory variables:
+   * log_return;
+   * squared_return;
+   * rolling_volatility_4w;
+   * brent_log_return;
+   * inflation_yoy;
+   * sanctions_event_count;
+   * sanctions_tightening_count;
+   * sanctions_relief_count.
+6. Both models are evaluated using the primary future four-week volatility experiment and the one-week squared-return robustness experiment.
+7. Removing the univariate LSTM means the study will not separately test whether the explanatory variables improve an LSTM compared with an exchange-rate-only LSTM.
+8. Instead, the main comparison focuses on whether the multivariate machine-learning approach provides improved volatility forecasting performance compared with the traditional GARCH benchmark.
+9. The reduced model scope allows more time for model validation, repeated LSTM runs, reproducibility checks and a more complete comparison of the final model results.
+
+## Implement GARCH Benchmark
+1. Use weekly USD/IRR log_return as the input series for the GARCH benchmark.
+2. Use the fixed training period ending on 27 December 2019.
+3. Scale weekly log returns by 100 before fitting the GARCH models so that the model works with percentage-return units.
+4. Start with a small set of standard GARCH specifications rather than a large model search.
+5. Test the following candidate models:
+   * GARCH(1,1) with Normal innovations;
+   * GARCH(1,1) with Student’s t innovations;
+   * GARCH(1,2) with Normal innovations;
+   * GARCH(1,2) with Student’s t innovations;
+   * GARCH(2,1) with Normal innovations;
+   * GARCH(2,1) with Student’s t innovations.
+6. Use a constant mean specification for all candidate models so that the comparison focuses on the volatility specification and innovation distribution.
+7. Compare the candidate models using:
+   * log-likelihood;
+   * AIC;
+   * BIC;
+   * convergence status.
+8. All six candidate models converged successfully.
+9. The Student’s t models performed clearly better than the equivalent Normal models based on log-likelihood, AIC and BIC.
+10. The best in-sample AIC was produced by GARCH(1,2) with Student’s t innovations:
+    * log-likelihood: -873.586;
+    * AIC: 1759.172;
+    * BIC: 1783.414.
+11. GARCH(1,1) with Student’s t innovations produced a slightly lower BIC of 1783.287, so both GARCH(1,1)-t and GARCH(1,2)-t were taken forward to validation rather than selecting a model from in-sample fit alone.
+12. Use expanding-window validation. For each validation week:
+    * fit the GARCH model using all weekly returns available up to that forecast date;
+    * produce forecasts using information available at that date only;
+    * move forward one week and include the newly observed return in the next fit.
+13. For the primary experiment, produce four weekly variance forecasts and convert them into a four-week volatility forecast by taking the square root of the average forecast variance.
+14. Convert the primary forecast back from percentage-return units to decimal-return units before comparing it with target_volatility_4w.
+15. For the robustness experiment, use the one-week-ahead GARCH variance forecast and convert it back to decimal squared-return units before comparing it with target_squared_volatility_1w.
+16. Keep the same target-safe validation rules used when creating the modelling datasets:
+    * primary validation ends on 2 December 2022 so the following four weeks remain inside the validation period;
+    * robustness validation ends on 23 December 2022 so the following week remains inside the validation period.
+17. Evaluate validation forecasts using MAE and RMSE.
+18. Validation results for the primary target were:
+    * GARCH(1,1)-t — MAE: 0.022203, RMSE: 0.028575;
+    * GARCH(1,2)-t — MAE: 0.022003, RMSE: 0.028345.
+19. Validation results for the robustness target were:
+    * GARCH(1,1)-t — MAE: 0.002201, RMSE: 0.004005;
+    * GARCH(1,2)-t — MAE: 0.002195, RMSE: 0.004030.
+20. The validation results were very similar, but GARCH(1,2) with Student’s t innovations performed slightly better overall and also had the best training AIC.
+21. Select GARCH(1,2) with Student’s t innovations as the final GARCH specification.
+22. Keep the test period untouched during model selection. The selected GARCH model will next be evaluated on the final test period using the same forecasting approach.
+
+## Final GARCH Test Evaluation
+1. After selecting GARCH(1,2) with Student’s t innovations using the training and validation periods, evaluate the selected model on the previously unused test period.
+2. Keep the same expanding-window forecasting method used during validation.
+3. For each test week, fit the GARCH model using all weekly returns available up to that forecast date and then produce the required future variance forecasts.
+4. Do not use test performance to change the selected GARCH specification.
+5. For the primary experiment, evaluate 182 test forecasts against target_volatility_4w.
+6. The final primary-target GARCH results were:
+   * MAE: 0.019744;
+   * RMSE: 0.025903.
+7. For the robustness experiment, evaluate 185 test forecasts against target_squared_volatility_1w.
+8. The final robustness-target GARCH results were:
+   * MAE: 0.001966;
+   * RMSE: 0.003844.
+9. These results are kept as the final GARCH benchmark for comparison with the multivariate LSTM.
+
