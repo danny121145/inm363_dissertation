@@ -619,3 +619,141 @@ The data is split by date into training, validation, and test sets. Because the 
    * RMSE: 0.003844.
 9. These results are kept as the final GARCH benchmark for comparison with the multivariate LSTM.
 
+## Prepare LSTM Sequences and Scaling
+1. Use the final multivariate modelling dataset for the LSTM experiments.
+2. Use the following eight input features:
+   * log_return;
+   * squared_return;
+   * rolling_volatility_4w;
+   * brent_log_return;
+   * inflation_yoy;
+   * sanctions_event_count;
+   * sanctions_tightening_count;
+   * sanctions_relief_count.
+3. Create separate LSTM datasets for:
+   * the primary target target_volatility_4w;
+   * the robustness target target_squared_volatility_1w.
+4. Use an initial sequence length of 12 weeks.
+5. For each prediction date, use the previous 12 weeks of input features as the LSTM sequence.
+6. The target for the current prediction date is kept separate from the 12-week input sequence.
+7. For the primary experiment, the target at week t represents volatility over the following four weeks.
+8. For the robustness experiment, the target at week t represents the squared return of the following week.
+9. Do not include future target values inside the input sequences.
+10. Allow validation and test sequences to use earlier historical observations as input context when those observations occurred before the prediction date.
+11. This means the first validation and test predictions do not need to lose 12 weeks of data simply because their historical input window begins in the previous split.
+12. Skip any sequence where one or more required feature values or the selected target are missing.
+13. The primary experiment produced:
+    * 400 training sequences;
+    * 152 validation sequences;
+    * 182 test sequences.
+14. The robustness experiment produced:
+    * 403 training sequences;
+    * 155 validation sequences;
+    * 185 test sequences.
+15. Each LSTM input has the shape:
+    * 12 historical weeks;
+    * 8 input features.
+16. Scale the LSTM input features using StandardScaler.
+17. Fit the feature scaler using training data only.
+18. Use the fitted training scaler to transform the validation and test inputs without refitting it.
+19. Scale the primary and robustness targets separately because they represent different measures and have different numerical ranges.
+20. Fit each target scaler using the relevant training target only.
+21. Use the same fitted target scaler to transform validation and test targets.
+22. After scaling, the training features have approximately zero mean and unit standard deviation.
+23. Keep the fitted target scalers so that LSTM predictions can later be converted back to the original target units.
+24. Calculate final MAE and RMSE after converting predictions back to their original units so that the LSTM results can be compared directly with the GARCH benchmark.
+25. Keep the 12-week sequence length as the initial baseline. Alternative sequence lengths can be tested later during controlled model experiments.
+
+## Implement Basic Multivariate LSTM
+1. Use the prepared multivariate LSTM sequences with a 12-week lookback and 8 input features.
+2. Build a simple baseline LSTM before carrying out any large hyperparameter search.
+3. Use one LSTM layer with:
+   * 32 hidden units;
+   * one layer;
+   * a linear output layer.
+4. Use the same basic architecture for both the primary and robustness targets so that the initial experiments are directly comparable.
+5. Use:
+   * Adam optimizer;
+   * learning rate of 0.001;
+   * mean squared error loss;
+   * maximum of 100 epochs;
+   * early stopping patience of 10 epochs.
+6. Set the random seed from config.py before training to improve reproducibility.
+7. Train the LSTM using the training sequences and monitor performance using the validation sequences.
+8. Save the model state with the lowest validation loss rather than keeping the model from the final training epoch.
+9. Stop training when validation loss does not improve for 10 consecutive epochs.
+10. For the primary target, the best validation loss was reached at approximately epoch 41 and training stopped at epoch 51.
+11. Convert the scaled predictions back to the original target units before calculating MAE and RMSE.
+12. The baseline primary-target LSTM results were:
+* validation MAE: 0.017819;
+* validation RMSE: 0.024623;
+* test MAE: 0.018657;
+* test RMSE: 0.023018.
+13. For the robustness target, training stopped at epoch 34 with a best validation loss of 0.412362.
+14. The baseline robustness-target LSTM results were:
+* validation MAE: 0.002107;
+* validation RMSE: 0.003802;
+* test MAE: 0.002077;
+* test RMSE: 0.003678.
+15. Save the validation and test forecasts with:
+* week_ending;
+* actual target value;
+* predicted target value.
+16. Treat these LSTM results as baseline runs rather than final model results because the LSTM will later be repeated across different random seeds and controlled configurations.
+17. Do not use the test results to tune the LSTM. Final tuning and repeated runs will be based on the training and validation setup before the final comparison is made.
+
+## Validate LSTM Reproducibility and Data Alignment
+1. Add checks before experiment tracking to confirm that the LSTM pipeline does not contain data leakage or alignment errors.
+2. Use a fixed random seed for:
+   * Python;
+   * NumPy;
+   * PyTorch.
+3. Use deterministic PyTorch behaviour where possible so that repeated runs with the same seed can be reproduced.
+4. Check that the LSTM feature list contains no duplicate feature names.
+5. Confirm that neither target_volatility_4w nor target_squared_volatility_1w appears in the LSTM input features.
+6. Confirm that all expected multivariate feature columns are present before creating sequences.
+7. The final LSTM feature set contains:
+   * log_return;
+   * squared_return;
+   * rolling_volatility_4w;
+   * brent_log_return;
+   * inflation_yoy;
+   * sanctions_event_count;
+   * sanctions_tightening_count;
+   * sanctions_relief_count.
+8. Check that every LSTM sequence has:
+   * 12 historical weeks;
+   * 8 input features;
+   * one correctly aligned target;
+   * one corresponding target date.
+9. Confirm that the number of input sequences, targets and dates is the same for every train, validation and test dataset.
+10. Keep the previously defined target-safe split boundaries:
+    * primary training targets end on 29 November 2019;
+    * primary validation targets end on 2 December 2022;
+    * robustness training targets end on 20 December 2019;
+    * robustness validation targets end on 23 December 2022.
+11. Check that no training or validation target crosses into the following time split.
+12. Fit all feature and target scalers using training data only.
+13. Apply the fitted training scalers to validation and test data without refitting them.
+14. Check that scaled train, validation and test inputs contain no missing values.
+15. Confirm that saved prediction dates exactly match the expected validation and test target dates.
+16. Convert model predictions back to the original target units before calculating MAE and RMSE.
+17. During the checks, a duplicated log_return feature was identified in the LSTM feature list and replaced with the intended squared_return feature.
+18. After correcting the feature list, recreate the LSTM sequences and rerun both baseline LSTM experiments.
+19. The corrected primary-target LSTM produced:
+    * best validation loss: 0.768636;
+    * early stopping at epoch 48;
+    * validation MAE: 0.017790;
+    * validation RMSE: 0.024846;
+    * test MAE: 0.018096;
+    * test RMSE: 0.023109.
+20. The corrected robustness-target LSTM produced:
+    * best validation loss: 0.409958;
+    * early stopping at epoch 34;
+    * validation MAE: 0.002111;
+    * validation RMSE: 0.003791;
+    * test MAE: 0.002029;
+    * test RMSE: 0.003675.
+21. Both corrected LSTM pipelines passed the prediction-count and prediction-date alignment checks.
+22. Save the corrected validation and test forecasts for later comparison with the GARCH benchmark.
+23. Treat these LSTM runs as baseline results only. Final LSTM conclusions will be based on repeated and controlled experiments tracked after Wandb is integrated.
