@@ -757,3 +757,151 @@ The data is split by date into training, validation, and test sets. Because the 
 21. Both corrected LSTM pipelines passed the prediction-count and prediction-date alignment checks.
 22. Save the corrected validation and test forecasts for later comparison with the GARCH benchmark.
 23. Treat these LSTM runs as baseline results only. Final LSTM conclusions will be based on repeated and controlled experiments tracked after Wandb is integrated.
+
+## Track and Tune LSTM Experiments with Weights & Biases
+1. Integrate Weights & Biases (W&B) into the LSTM training script to track model configurations and experiment results.
+2. Log the following configuration values for every run:
+   * target type;
+   * sequence length;
+   * hidden size;
+   * learning rate;
+   * maximum epochs;
+   * patience;
+   * random seed;
+   * number of input features.
+3. Log training loss and validation loss after every epoch.
+4. Log the final:
+   * best validation loss;
+   * validation MAE;
+   * validation RMSE;
+   * test MAE;
+   * test RMSE;
+   * early stopping epoch.
+5. Refactor the LSTM script so that the same file can run either the primary or robustness target using a command-line argument.
+6. Add command-line arguments for:
+   * target;
+   * random seed;
+   * hidden size;
+   * learning rate.
+7. Use fixed random seeds so that the effect of different neural-network initialisations can be measured without changing the dataset, features or train-validation-test splits.
+8. Use five seeds for the baseline stability experiments:
+   * 1;
+   * 7;
+   * 21;
+   * 42;
+   * 99.
+9. The original baseline configuration used:
+   * sequence length = 12 weeks;
+   * hidden size = 32;
+   * learning rate = 0.001;
+   * maximum epochs = 100;
+   * patience = 10.
+10. For the primary target, the five baseline runs produced a mean validation MAE of 0.018084 and a mean validation RMSE of 0.025322.
+11. The standard deviation across the five primary baseline runs was:
+    * MAE = 0.000350;
+    * RMSE = 0.000343.
+12. For the robustness target, the five baseline runs produced a mean validation MAE of 0.002091 and a mean validation RMSE of 0.003818.
+13. The standard deviation across the five robustness baseline runs was:
+    * MAE = 0.000094;
+    * RMSE = 0.000015.
+14. These repeated runs showed that both baseline LSTM models were reasonably stable across different random initialisations.
+15. Keep hyperparameter tuning intentionally small because the purpose of the dissertation is to compare GARCH and LSTM forecasting performance rather than perform a large neural-network architecture search.
+16. Use the primary target for the small controlled tuning experiment.
+17. Test three hidden sizes while keeping the learning rate fixed at 0.001 and using seed 42:
+    * 16;
+    * 32;
+    * 64.
+18. The validation results were:
+    * hidden size 16: MAE 0.017543, RMSE 0.024665;
+    * hidden size 32: MAE 0.017790, RMSE 0.024846;
+    * hidden size 64: MAE 0.018424, RMSE 0.025211.
+19. Hidden size 16 produced the strongest primary validation performance and was therefore carried forward to the learning-rate experiment.
+20. Test three learning rates with hidden size 16 and seed 42:
+    * 0.0005;
+    * 0.001;
+    * 0.005.
+21. The validation results were:
+    * learning rate 0.0005: MAE 0.017540, RMSE 0.025531;
+    * learning rate 0.001: MAE 0.017543, RMSE 0.024665;
+    * learning rate 0.005: MAE 0.017750, RMSE 0.024705.
+22. Learning rate 0.001 produced the lowest validation RMSE and best validation loss and was retained.
+23. Run the selected primary configuration, hidden size 16 and learning rate 0.001, across all five seeds.
+24. The selected primary configuration produced:
+    * mean validation MAE = 0.017684;
+    * standard deviation MAE = 0.000267;
+    * mean validation RMSE = 0.024734;
+    * standard deviation RMSE = 0.000209.
+25. This was better than the original primary baseline on both mean validation MAE and RMSE and also showed lower variation across seeds.
+26. The final primary LSTM configuration was therefore selected as:
+    * sequence length = 12;
+    * hidden size = 16;
+    * learning rate = 0.001;
+    * patience = 10;
+    * maximum epochs = 100.
+27. Apply the same hidden-size-16 configuration to the robustness target across the five seeds to check whether the primary tuning decision also improves the robustness target.
+28. The hidden-size-16 robustness configuration produced:
+    * mean validation MAE = 0.002107;
+    * standard deviation MAE = 0.000124;
+    * mean validation RMSE = 0.003833;
+    * standard deviation RMSE = 0.000018.
+29. This was slightly worse than the original hidden-size-32 robustness baseline, which produced:
+    * mean validation MAE = 0.002091;
+    * standard deviation MAE = 0.000094;
+    * mean validation RMSE = 0.003818;
+    * standard deviation RMSE = 0.000015.
+30. The final robustness LSTM configuration was therefore retained as:
+    * sequence length = 12;
+    * hidden size = 32;
+    * learning rate = 0.001;
+    * patience = 10;
+    * maximum epochs = 100.
+31. Use validation results only for model and hyperparameter selection.
+32. Do not select a final model based on whichever individual random seed gives the lowest error.
+33. Treat repeated-seed results as evidence of model stability and report average performance and variation across runs.
+34. Carry the selected primary and robustness configurations forward to the final comparison with the fixed GARCH benchmark.
+
+## Final LSTM and GARCH Evaluation
+1. Use the model configurations selected using validation performance for the final test comparison.
+2. Keep the previously selected GARCH benchmark fixed as GARCH(1,2) with Student's t-distributed errors.
+3. Use the final primary LSTM configuration:
+   * sequence length = 12 weeks;
+   * hidden size = 16;
+   * learning rate = 0.001;
+   * maximum epochs = 100;
+   * patience = 10.
+4. Use the final robustness LSTM configuration:
+   * sequence length = 12 weeks;
+   * hidden size = 32;
+   * learning rate = 0.001;
+   * maximum epochs = 100;
+   * patience = 10.
+5. Evaluate each selected LSTM configuration across five random seeds:
+   * 1;
+   * 7;
+   * 21;
+   * 42;
+   * 99.
+6. Use the same train, validation and test periods for every repeated run.
+7. Do not change the feature set, target definition or scaling method between repeated runs.
+8. Calculate MAE and RMSE in the original target units after reversing the target scaling.
+9. Report the LSTM test results using the mean and standard deviation across the five seeds rather than selecting the best individual seed.
+10. The final primary LSTM test performance was:
+    * MAE = 0.017671 ± 0.000529;
+    * RMSE = 0.023306 ± 0.000260.
+11. The fixed GARCH primary test performance was:
+    * MAE = 0.019744;
+    * RMSE = 0.025903.
+12. The LSTM therefore produced lower MAE and RMSE than GARCH for the primary four-week volatility target.
+13. The final robustness LSTM test performance was:
+    * MAE = 0.002021 ± 0.000144;
+    * RMSE = 0.003685 ± 0.000021.
+14. The fixed GARCH robustness test performance was:
+    * MAE = 0.001966;
+    * RMSE = 0.003844.
+15. For the robustness target, GARCH produced a slightly lower MAE, while the LSTM produced a lower RMSE.
+16. Treat the four-week future volatility target as the primary result because it represents the main forecasting task defined.
+17. Treat the next-week squared-return target as a robustness check used to test whether the overall findings remain similar under a different definition of future volatility.
+18. Do not interpret the robustness result as showing that one model is better on every metric.
+19. Use the primary and robustness results together when answering the research question.
+20. Interpret the final evidence as showing that the multivariate LSTM improved forecasting performance over the GARCH benchmark for the main four-week volatility target, while the robustness analysis produced mixed results depending on the evaluation metric.
+

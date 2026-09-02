@@ -232,8 +232,25 @@ if not np.array_equal(
         "Test prediction dates are misaligned."
     )
 
-validation_results.to_csv(f"data/processed/lstm_{args.target}_validation_forecasts.csv",index=False,)
-test_results.to_csv(f"data/processed/lstm_{args.target}_test_forecasts.csv",index=False,)
+validation_results.to_csv(
+    (
+        f"data/processed/"
+        f"lstm_{args.target}_"
+        f"h{HIDDEN_SIZE}_"
+        f"lr{LEARNING_RATE}_"
+        f"seed{RUN_SEED}_"
+        f"validation_forecasts.csv"),index=False,
+)
+
+test_results.to_csv(
+    (
+        f"data/processed/"
+        f"lstm_{args.target}_"
+        f"h{HIDDEN_SIZE}_"
+        f"lr{LEARNING_RATE}_"
+        f"seed{RUN_SEED}_"
+        f"test_forecasts.csv"),index=False,
+)
 print(f"Saved {args.target.capitalize()} LSTM forecasts.")
 
 run.finish()
